@@ -9,6 +9,7 @@ conda install -c pytorch magma-cuda102  # or [ magma-cuda101 | magma-cuda100 | m
 
 git submodule init
 git submodule sync
+git submodule foreach ~/loadrc/gitrc/grsh.sh
 git submodule update --init --recursive
 
 export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
