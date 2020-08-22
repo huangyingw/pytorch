@@ -18,4 +18,4 @@
     remote = origin
     merge = refs/heads/master
 [gdif]
-    ignore = *.gdio.diff
+    ignore = install.sh
