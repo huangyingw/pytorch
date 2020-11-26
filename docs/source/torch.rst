@@ -99,9 +99,12 @@ Indexing, Slicing, Joining, Mutating Ops
     split
     squeeze
     stack
+    swapaxes
+    swapdims
     t
     take
     tensor_split
+    tile
     transpose
     unbind
     unsqueeze
@@ -298,6 +301,7 @@ Pointwise Ops
     fmod
     frac
     imag
+    ldexp
     lerp
     lgamma
     log
@@ -314,6 +318,7 @@ Pointwise Ops
     hypot
     i0
     igamma
+    igammac
     mul
     multiply
     mvlgamma
