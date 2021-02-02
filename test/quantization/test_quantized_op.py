@@ -2190,6 +2190,12 @@ class TestQuantizedOps(TestCase):
         X = torch.ones((0, 2, 4, 4), dtype=torch.float32)
         qX = torch.quantize_per_tensor(X, scale=scale, zero_point=zero_point,
                                        dtype=torch.quint8)
+
+        # upsample_nearest2d
+        qY = torch.nn.functional.upsample_nearest(qX, scale_factor=2)
+        np.testing.assert_equal(qY.size(), (0, 2, 8, 8),
+                                "Quantized upsample_nearsest2d with batch size 0 failed.")
+
         # relu
         qY = torch.nn.functional.relu(qX)
         np.testing.assert_equal(qY.size(), qX.size(),
@@ -3220,7 +3226,6 @@ class TestQuantizedEmbeddingOps(TestCase):
 
 
     """ Tests the correctness of the embedding_bag_8bit quantized operator """
-    @skipIfNoFBGEMM
     @given(num_embeddings=st.integers(10, 100),
            embedding_dim=st.integers(5, 50).filter(lambda x: x % 4 == 0),
            num_offsets=st.integers(1, 20),
@@ -3275,7 +3280,6 @@ class TestQuantizedEmbeddingOps(TestCase):
     """ Tests the correctness of the quantized embedding lookup operator """
     @given(num_embeddings=st.integers(10, 100),
            embedding_dim=st.integers(5, 50).filter(lambda x: x % 4 == 0))
-    @skipIfNoFBGEMM
     def test_embedding_byte(self, num_embeddings, embedding_dim):
         quant_op = torch.ops.quantized.embedding_byte
         prepack_op = torch.ops.quantized.embedding_bag_prepack
@@ -3306,7 +3310,6 @@ class TestQuantizedEmbeddingOps(TestCase):
         torch.testing.assert_allclose(ref, qresult, atol=0.005, rtol=1e-3)
 
 
-    @skipIfNoFBGEMM
     def test_embedding_2d_indices(self):
         """
         Tests the case where 2D indices are passed into the operator
@@ -3329,7 +3332,6 @@ class TestQuantizedEmbeddingOps(TestCase):
         qresult = quant_op(packed_weight, indices, pruned_weights=False)
         torch.testing.assert_allclose(ref, qresult, atol=0.05, rtol=1e-3)
 
-    @skipIfNoFBGEMM
     def test_embedding_bag_2d_indices(self):
         """
         Tests the case where 2D indices are passed into the operator
@@ -3427,7 +3429,7 @@ class TestQuantizedConv(TestCase):
         self, batch_size, input_channels_per_group, input_feature_map_shape,
         output_channels_per_group, groups, kernels, strides, pads, dilations,
         X_scale, X_zero_point, W_scale, W_zero_point,
-        use_bias, use_channelwise, use_transpose, memory_format=torch.contiguous_format
+        use_bias, use_channelwise, use_transpose
     ):
         assert not (use_channelwise and use_transpose), \
                "Cannot generate channelwise qconv_transpose_tensors "
@@ -3475,7 +3477,6 @@ class TestQuantizedConv(TestCase):
             (batch_size, input_channels,) + input_feature_map_shape,
         )
         X = X_scale * (X_init - X_zero_point).float()
-        X = X.to(memory_format=memory_format)
 
         if use_channelwise:
             W_shape = (-1, 1) + (1,) * len(kernels)
@@ -3508,15 +3509,13 @@ class TestQuantizedConv(TestCase):
         input_channels_per_group, input_feature_map_shape,
         output_channels_per_group, groups, kernels, strides, pads, o_pads,
         dilations, X_scale, X_zero_point, W_scale, W_zero_point, Y_scale,
-        Y_zero_point, use_bias, use_relu, use_channelwise, use_transpose,
-        memory_format=torch.contiguous_format
+        Y_zero_point, use_bias, use_relu, use_channelwise, use_transpose
     ):
         (X, W), (X_q, W_q), bias_float = self._make_qconv_tensors(
             batch_size, input_channels_per_group, input_feature_map_shape,
             output_channels_per_group, groups, kernels,
             strides, pads, dilations, X_scale, X_zero_point, W_scale,
-            W_zero_point, use_bias, use_channelwise, use_transpose,
-            memory_format)
+            W_zero_point, use_bias, use_channelwise, use_transpose)
         # Assign weights
         W = W_q.dequantize()
         X = X_q.dequantize()
@@ -3563,14 +3562,6 @@ class TestQuantizedConv(TestCase):
             err_msg=f'''X: {X_q}, W: {W_q}, b: {bias_float}, strides: {strides},
             pads: {pads}, o_pads: {o_pads}, dilations: {dilations},
             groups: {groups}, y_s: {Y_scale}, y_zp: {Y_zero_point}''')
-
-        # fbgemm for now forces output to be NHWC (channels last) to opportunistically
-        # improve performance
-        if torch.backends.quantized.engine == 'qnnpack':
-            # Make sure memory format is preserved
-            self.assertEqual(
-                X_q.is_contiguous(memory_format=memory_format),
-                Y_q.is_contiguous(memory_format=memory_format))
 
         # Return the quantized data for later reuse
         return X_q, W_q, bias_float
@@ -3644,14 +3635,12 @@ class TestQuantizedConv(TestCase):
             dilations,
             groups,
         )
-        for memory_format in (torch.contiguous_format, torch.channels_last):
-            self._test_qconv_impl(
-                qconv, qconv_prepack, conv_op, batch_size,
-                input_channels_per_group, (height, width),
-                output_channels_per_group, groups, kernels, strides, pads, None,
-                dilations, X_scale, X_zero_point, W_scale, W_zero_point,
-                Y_scale, Y_zero_point, use_bias, use_relu, use_channelwise, False,
-                memory_format)
+        self._test_qconv_impl(
+            qconv, qconv_prepack, conv_op, batch_size,
+            input_channels_per_group, (height, width),
+            output_channels_per_group, groups, kernels, strides, pads, None,
+            dilations, X_scale, X_zero_point, W_scale, W_zero_point,
+            Y_scale, Y_zero_point, use_bias, use_relu, use_channelwise, False)
 
     """Tests the correctness of quantized convolution op."""
     @given(batch_size=st.integers(1, 3),
@@ -4243,7 +4232,6 @@ class TestQuantizedConv(TestCase):
             qconv_prepack, qconv_unpack, inputs,
             (stride_d, stride_h, stride_w), (pad_d, pad_h, pad_w), (o_pad, o_pad, o_pad),
             channelwise)
-
 
 class TestPadding(TestCase):
     @given(batch_size=st.integers(1, 64),
