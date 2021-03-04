@@ -92,6 +92,7 @@ Pooling layers
     nn.AvgPool2d
     nn.AvgPool3d
     nn.FractionalMaxPool2d
+    nn.FractionalMaxPool3d
     nn.LPPool1d
     nn.LPPool2d
     nn.AdaptiveMaxPool1d
@@ -286,6 +287,7 @@ Loss Functions
     nn.MarginRankingLoss
     nn.HingeEmbeddingLoss
     nn.MultiLabelMarginLoss
+    nn.HuberLoss
     nn.SmoothL1Loss
     nn.SoftMarginLoss
     nn.MultiLabelSoftMarginLoss
