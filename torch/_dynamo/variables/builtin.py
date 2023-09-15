@@ -1150,6 +1150,7 @@ class BuiltinVariable(VariableTracker):
     def call_setattr(
         self, tx, obj: VariableTracker, name_var: VariableTracker, val: VariableTracker
     ):
+        from .dicts import HFPretrainedConfigVariable
         from .distributed import PlacementVariable
 
         if isinstance(obj, (variables.DataClassVariable, PlacementVariable)):
@@ -1195,8 +1196,17 @@ class BuiltinVariable(VariableTracker):
                         and mod_setattr is torch.nn.Module.__setattr__
                     ):
                         return getattr_var
+            elif name_var.is_python_constant() and isinstance(
+                val, variables.ConstantVariable
+            ):
+                return obj.var_setattr(tx, name_var, val)
 
             obj.convert_to_unspecialized(tx)
+        elif isinstance(obj, HFPretrainedConfigVariable):
+            if name_var.is_python_constant() and isinstance(
+                val, variables.ConstantVariable
+            ):
+                return obj.var_setattr(tx, name_var, val)
 
     def call_delattr(self, tx, obj: VariableTracker, name_var: VariableTracker):
         return self.call_setattr(tx, obj, name_var, variables.DeletedVariable())
